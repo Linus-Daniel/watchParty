@@ -1,49 +1,30 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Head from "next/head";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  FiSearch,
-  FiX,
-  FiUsers,
-  FiMessageSquare,
-  FiYoutube,
-  FiHome,
-  FiCompass,
-  FiClock,
-  FiSettings,
-  FiHelpCircle,
-  FiMenu,
-  FiVideo,
-  FiMic,
-  FiMicOff,
-  FiVideoOff,
-  FiPhone,
-} from "react-icons/fi";
+import { FiMessageSquare, FiX, FiVideo, FiMic, FiMicOff, FiVideoOff, FiPhone, FiSend } from "react-icons/fi";
 import { FaYoutube, FaFacebook, FaTiktok } from "react-icons/fa";
 import { SiNetflix } from "react-icons/si";
 import Header from "@/components/Header";
-import Button from "@/components/Buttton";
-import Modal from "@/components/Modal";
 import SideBar from "@/components/room/SideBar";
-import CreateRoomModal from "@/components/room/Modal";
 import Chat from "@/components/room/Chat";
 import { useAuth } from "@/context/AuthContext";
 import CopyText from "@/components/room/CopyId";
+import CreateRoomModal from "@/components/room/Modal";
+import api from "@/lib/api";
+import { Room } from "@/types";
+import { StringExpressionOperator } from "mongoose";
 
-const VideoPlayer = dynamic(
-  () => import("../../../components/room/Videoplayer"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Loading player...</div>
-      </div>
-    ),
-  }
-);
+const VideoPlayer = dynamic(() => import("@/components/room/Videoplayer"), {
+  ssr: false,
+  loading: () => (
+    <div className="aspect-video bg-gray-800 rounded-xl flex items-center justify-center">
+      <div className="animate-pulse text-gray-500">Loading player...</div>
+    </div>
+  ),
+});
 
 interface VideoSource {
   id: string;
@@ -63,19 +44,20 @@ const RoomPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<VideoSource[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
-
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [activeSource, setActiveSource] = useState<
     "youtube" | "facebook" | "tiktok" | "netflix" | "fmovies"
   >("youtube");
-  const [createRoom, setCreateRoom] = useState(false);
+  const [room, setRoom] = useState<Room>();
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
   const searchRef = useRef<HTMLDivElement>(null);
 
   const mockSession = {
     user: {
       id: "123",
-      username: user?.username || "Guest",
+      username: user?.name || "Guest",
       avatar: "https://randomuser.me/api/portraits/men/1.jpg",
       email: "johndoe@example.com",
     },
@@ -87,6 +69,20 @@ const RoomPage: React.FC = () => {
     currentVideo: "https://www.youtube.com/watch?v=LXb3EKWsInQ",
   };
 
+
+  useEffect(() => {
+    const fetchRoomData = async () => {
+      // Fetch room data from API
+      const response = await api.get(`/rooms/${roomId}`);
+      console.log(response.data.room, "room data");
+      setRoom(response.data.room);
+    };
+
+    fetchRoomData();
+  },[roomId]);
+
+
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -94,7 +90,7 @@ const RoomPage: React.FC = () => {
     setIsSearching(true);
 
     try {
-      // Mock search results
+      // Mock search results would be replaced with actual API call
       const mockResults: VideoSource[] = [
         {
           id: "LXb3EKWsInQ",
@@ -104,45 +100,10 @@ const RoomPage: React.FC = () => {
           source: "youtube",
           url: "https://www.youtube.com/watch?v=LXb3EKWsInQ",
         },
-        {
-          id: "facebook123",
-          title: "Linux Tutorial for Beginners",
-          thumbnail: "https://via.placeholder.com/150",
-          duration: "10:15",
-          source: "facebook",
-          url: "https://facebook.com/watch/?v=123456",
-        },
-        {
-          id: "tiktok123",
-          title: "Quick Linux Tips",
-          thumbnail: "https://via.placeholder.com/150",
-          duration: "0:45",
-          source: "tiktok",
-          url: "https://tiktok.com/@user/video/123456",
-        },
-        {
-          id: "netflix123",
-          title: "Abstract: The Art of Design",
-          thumbnail: "https://via.placeholder.com/150",
-          duration: "45:00",
-          source: "netflix",
-          url: "https://netflix.com/watch/123456",
-        },
-        {
-          id: "fmovies123",
-          title: "The Social Dilemma",
-          thumbnail: "https://via.placeholder.com/150",
-          duration: "1:34:00",
-          source: "fmovies",
-          url: "https://fmovies.to/movie/the-social-dilemma-12345",
-        },
+        // ... other mock results
       ];
 
-      setSearchResults(
-        mockResults.filter((result) =>
-          activeSource === "youtube" ? result.source === "youtube" : true
-        )
-      );
+      setSearchResults(mockResults);
     } catch (error) {
       console.error("Search error:", error);
     } finally {
@@ -162,25 +123,17 @@ const RoomPage: React.FC = () => {
 
   const getSourceIcon = (source: string) => {
     switch (source) {
-      case "youtube":
-        return <FaYoutube className="text-red-500" />;
-      case "facebook":
-        return <FaFacebook className="text-blue-600" />;
-      case "tiktok":
-        return <FaTiktok className="text-black dark:text-white" />;
-      case "netflix":
-        return <SiNetflix className="text-red-600" />;
-      default:
-        return <FiVideo className="text-gray-400" />;
+      case "youtube": return <FaYoutube className="text-red-500" />;
+      case "facebook": return <FaFacebook className="text-blue-600" />;
+      case "tiktok": return <FaTiktok className="text-black dark:text-white" />;
+      case "netflix": return <SiNetflix className="text-red-600" />;
+      default: return <FiVideo className="text-gray-400" />;
     }
   };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      ) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setSearchResults([]);
       }
     };
@@ -200,12 +153,15 @@ const RoomPage: React.FC = () => {
       </Head>
 
       <div className="flex flex-col h-screen bg-gray-900 text-white">
+        
         <div className="flex flex-1 overflow-hidden">
+          
+          {/* Main Content Area */}
           <main className="flex-1 overflow-y-auto">
             <div className="container mx-auto px-4 py-6 h-full">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                {/* Video and Controls - Takes 2/3 on large screens */}
-                <div className="lg:col-span-2 flex flex-col h-full">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+                {/* Video and Controls - Takes 3/4 on large screens */}
+                <div className="lg:col-span-3 flex flex-col h-full space-y-4">
                   {/* Video Player */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -213,7 +169,7 @@ const RoomPage: React.FC = () => {
                     className="relative aspect-video bg-gray-800 rounded-xl overflow-hidden shadow-2xl"
                   >
                     <VideoPlayer
-                      url={videoUrl}
+                      url={room?.videoUrl as string}
                       roomId={roomId}
                       isHost={mockSession.user?.id === mockRoom.host.id}
                     />
@@ -231,11 +187,7 @@ const RoomPage: React.FC = () => {
                             isMuted ? "bg-red-500" : "bg-gray-700/90"
                           } backdrop-blur-sm hover:bg-opacity-80 transition-all`}
                         >
-                          {isMuted ? (
-                            <FiMicOff size={20} />
-                          ) : (
-                            <FiMic size={20} />
-                          )}
+                          {isMuted ? <FiMicOff size={20} /> : <FiMic size={20} />}
                         </button>
                         <button
                           onClick={toggleVideo}
@@ -243,11 +195,7 @@ const RoomPage: React.FC = () => {
                             isVideoOff ? "bg-red-500" : "bg-gray-700/90"
                           } backdrop-blur-sm hover:bg-opacity-80 transition-all`}
                         >
-                          {isVideoOff ? (
-                            <FiVideoOff size={20} />
-                          ) : (
-                            <FiVideo size={20} />
-                          )}
+                          {isVideoOff ? <FiVideoOff size={20} /> : <FiVideo size={20} />}
                         </button>
                         <button
                           onClick={toggleCall}
@@ -258,21 +206,16 @@ const RoomPage: React.FC = () => {
                       </motion.div>
                     )}
                   </motion.div>
-                  <div className="bg-white/10  gap-3 my-3 rounded-sm flex items-center p-3">
-                    <p>Share this room with your friends:
-                    </p>
-                  <CopyText text={` ${roomId}`} />
+
+                  {/* Room Sharing */}
+                  <div className="bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between">
+                    <p className="text-gray-300">Share this room with friends:</p>
+                    <CopyText text={roomId} />
                   </div>
 
                   {/* Video Source Tabs */}
-                  <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                    {[
-                      "youtube",
-                      "facebook",
-                      "tiktok",
-                      "netflix",
-                      "fmovies",
-                    ].map((source) => (
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {["youtube", "facebook", "tiktok", "netflix", "fmovies"].map((source) => (
                       <button
                         key={source}
                         onClick={() => setActiveSource(source as any)}
@@ -293,7 +236,7 @@ const RoomPage: React.FC = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="mt-4 bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 shadow-lg"
+                    className="bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 shadow-lg"
                   >
                     <div className="relative" ref={searchRef}>
                       <form onSubmit={handleSearch} className="flex">
@@ -368,25 +311,24 @@ const RoomPage: React.FC = () => {
                   </motion.div>
                 </div>
 
-                {/* Chat Section - Takes 1/3 on large screens */}
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="hidden lg:flex flex-col h-full"
-                >
+                {/* Chat Section - Takes 1/4 on large screens */}
+                <div className="lg:flex flex-col hidden h-full">
                   <div className="bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg h-full flex flex-col">
                     <div className="p-4 border-b border-gray-700">
                       <h3 className="font-semibold text-lg flex items-center gap-2">
                         <FiMessageSquare /> Room Chat
                       </h3>
                     </div>
-
-                    <div className="flex-1 overflow-hidden">
-                      <Chat roomId={roomId} userId={mockSession.user?.id} />
+                    
+                    {/* Chat container with fixed height that doesn't scroll */}
+                    <div className="flex-1 min-h-0"> {/* Key change here */}
+                      <Chat 
+                        roomId={roomId} 
+                        userId={mockSession.user?.id}
+                        className="h-full" 
+                      />
                     </div>
 
-                    {/* Call Controls */}
                     <div className="p-4 border-t border-gray-700">
                       <button
                         onClick={toggleCall}
@@ -410,27 +352,25 @@ const RoomPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               </div>
             </div>
           </main>
         </div>
 
         {/* Mobile Chat Toggle */}
-        <div className="lg:hidden fixed bottom-6 right-6 z-10">
-          <button
-            onClick={() => setIsCallActive(!isCallActive)}
-            className={`p-4 rounded-full shadow-xl ${
-              isCallActive ? "bg-red-600" : "bg-blue-600"
-            } text-white transition-all hover:scale-105`}
-          >
-            {isCallActive ? <FiX size={24} /> : <FiMessageSquare size={24} />}
-          </button>
-        </div>
+        <button
+          onClick={() => setMobileChatOpen(!mobileChatOpen)}
+          className={`lg:hidden fixed bottom-6 right-6 z-10 p-4 rounded-full shadow-xl ${
+            mobileChatOpen ? "bg-red-600" : "bg-blue-600"
+          } text-white transition-all hover:scale-105`}
+        >
+          {mobileChatOpen ? <FiX size={24} /> : <FiMessageSquare size={24} />}
+        </button>
 
         {/* Mobile Chat Panel */}
         <AnimatePresence>
-          {isCallActive && (
+          {mobileChatOpen && (
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -442,26 +382,25 @@ const RoomPage: React.FC = () => {
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center">
                   <h3 className="font-semibold text-lg">Room Chat</h3>
                   <button
-                    onClick={() => setIsCallActive(false)}
+                    onClick={() => setMobileChatOpen(false)}
                     className="p-2 rounded-full hover:bg-gray-700"
                   >
                     <FiX size={20} />
                   </button>
                 </div>
-                <div className="flex-1 overflow-hidden">
-                  <Chat roomId={roomId} userId={mockSession.user?.id} />
+                <div className="flex-1 min-h-0">
+                  <Chat 
+                    roomId={roomId} 
+                    userId={mockSession.user?.id}
+                    className="h-full"
+                  />
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Create Room Modal */}
-        <CreateRoomModal
-          isOpen={createRoom}
-          onClose={() => setCreateRoom(false)}
-          userId={user?.id as string}
-        />
+    
       </div>
     </>
   );

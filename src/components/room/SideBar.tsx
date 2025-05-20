@@ -22,24 +22,16 @@ function SideBar() {
   const params = useParams();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [createRoom, setCreateRoom] = useState<boolean>(false);
+    const [joinRoom, setJoinRoom] = useState<boolean>(false);
   const [rooms, setRooms] = useState<Room[]>();
-  
+
 
   const { user } = useAuth();
-  const userId = user?.id;
+  const userId = user?._id;
 
   useEffect(() => {
-    const getuser = async () => {
-      const response = await api.get(`/auth/me/`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      console.log(response.data.user, "This is me");
-    };
     const fetchRooms = async () => {
-      const response = await api.get(`rooms/`, {
+      const response = await api.get(`rooms/user/${userId}`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -52,10 +44,9 @@ function SideBar() {
       console.log(response.data.rooms, "rooms");
     };
     fetchRooms();
-    getuser();
-  }, [user?.id]);
+  }, [user?._id]);
 
-  console.log(rooms);
+  console.log(userId, "user Id");
 
   return (
     <div>
@@ -128,7 +119,7 @@ function SideBar() {
                 {rooms?.map((room, index) => (
                   <li>
                     <Link
-                      href={`/room/${room._id}`}
+                      href={`/room/${room.roomId}`}
                       className="flex items-center p-2 rounded-lg hover:bg-gray-700 transition-colors"
                     >
                       <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
@@ -139,14 +130,23 @@ function SideBar() {
                   </li>
                 ))}
               </ul>
+              <div>
+                <Button className="mb-2" onClick={() => setJoinRoom(true)}>Join Room</Button>
+                <Button onClick={() => setCreateRoom(true)}>Create Room</Button>
 
-              <Button onClick={() => setCreateRoom(true)}>Create Room</Button>
+                <CreateRoomModal
+                  isOpen={createRoom}
+                  initialRoomId=""
+                  mode="create"
+                  onClose={() => setCreateRoom(false)}
+                />
 
-              <CreateRoomModal
-                isOpen={createRoom}
-                userId=""
-                onClose={() => setCreateRoom(false)}
-              />
+                <CreateRoomModal
+                  isOpen={joinRoom}
+                  initialRoomId=""
+                  mode="join"
+                  onClose={() => setJoinRoom(false)} />
+              </div>
             </div>
           )}
         </nav>

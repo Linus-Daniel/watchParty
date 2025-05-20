@@ -20,7 +20,7 @@ const Header: React.FC = () => {
               <Link href="/room/create">
                 <p className="hover:text-blue-300">Create Room</p>
               </Link>
-              <span className="text-gray-300">Hello, {user.username}</span>
+              <span className="text-gray-300">Hello, {user.name}</span>
               <Button 
                 onClick={() => logout()}
                 className="bg-red-500 hover:bg-red-600"

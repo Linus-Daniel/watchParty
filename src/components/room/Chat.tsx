@@ -11,7 +11,7 @@ interface Message {
   timestamp: Date;
 }
 
-const Chat: React.FC<{ roomId: string; userId: string }> = ({ roomId, userId }) => {
+const Chat: React.FC<{ roomId: string; userId: string;className:string }> = ({ roomId, userId,className, }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const { socket } = useSocket();

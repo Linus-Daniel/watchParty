@@ -1,7 +1,7 @@
 import axios from "axios";
 const api = axios.create({
     baseURL: process.env.NODE_ENV === 'production' 
-      ? "https://estate-backend-4hk1.onrender.com/api/v1" 
+      ? "https://scenema-backend.onrender.com/api/" 
       : "http://localhost:5001/api/",
     withCredentials: true, // Important for cookies
   });
@@ -22,7 +22,6 @@ const api = axios.create({
       if (error.response?.status === 401) {
         // Handle unauthorized errors (e.g., logout user)
         localStorage.removeItem("token");
-        window.location.href = '/login'; // Redirect to login
       }
       return Promise.reject(error);
     }

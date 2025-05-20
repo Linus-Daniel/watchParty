@@ -27,7 +27,7 @@ const Participants: React.FC<ParticipantsProps> = ({ roomId, currentUser }) => {
     });
 
     socket.on('userLeft', (userId: string) => {
-      setParticipants(prev => prev.filter(u => u.id !== userId));
+      setParticipants(prev => prev.filter(u => u._id !== userId));
     });
 
     return () => {
@@ -42,14 +42,14 @@ const Participants: React.FC<ParticipantsProps> = ({ roomId, currentUser }) => {
       <h3 className="text-lg font-semibold mb-4 text-white">Participants ({participants.length})</h3>
       <div className="space-y-3">
         {participants.map(user => (
-          <div key={user.id} className="flex items-center space-x-3">
+          <div key={user._id} className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-              {user.username.charAt(0).toUpperCase()}
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <span className="text-white">
-              {user.username} 
-              {user.id === currentUser.id && ' (You)'}
-              {user.id === currentUser.id && <span className="ml-2 text-xs bg-blue-500 px-2 py-1 rounded">Host</span>}
+              {user.name} 
+              {user._id === currentUser._id && ' (You)'}
+              {user._id === currentUser._id && <span className="ml-2 text-xs bg-blue-500 px-2 py-1 rounded">Host</span>}
             </span>
           </div>
         ))}

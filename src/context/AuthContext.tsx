@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userInfo = await api.get(`/auth/me/`,{
             headers:{
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
+                Authorization: `Bearer ${localStorage.getItem('token') || res.data.token}`,
             }
         })
     
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  console.log(user)
+  console.log(user," from the context")
   const register = async ({ name, email, password }: { name: string; email: string; password: string }) => {
     setLoading(true);
     try {
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setUser(null);
     localStorage.removeItem('user');
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   return (
