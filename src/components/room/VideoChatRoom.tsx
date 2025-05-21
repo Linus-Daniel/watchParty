@@ -25,6 +25,8 @@ const VideoChatRoom = ({ roomId, userId }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Connecting...');
   const { socket, isConnected } = useSocket();
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+
 
   // Initialize media and WebRTC connection
   const initializeMedia = async () => {
@@ -92,11 +94,17 @@ const VideoChatRoom = ({ roomId, userId }: Props) => {
   // Handle incoming WebRTC signals
   const handleSignal = async ({ senderId, signal }: { senderId: string, signal: any }) => {
     if (!peerConnectionRef.current) return;
-
+  
     try {
       if (signal.sdp) {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-        
+  
+        // Now apply any buffered candidates
+        for (const candidate of pendingCandidates.current) {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+        pendingCandidates.current = [];
+  
         if (signal.sdp.type === 'offer') {
           const answer = await peerConnectionRef.current.createAnswer();
           await peerConnectionRef.current.setLocalDescription(answer);
@@ -107,13 +115,19 @@ const VideoChatRoom = ({ roomId, userId }: Props) => {
           });
         }
       } else if (signal.candidate) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        if (peerConnectionRef.current.remoteDescription) {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else {
+          // Buffer the candidate
+          pendingCandidates.current.push(signal.candidate);
+        }
       }
     } catch (err) {
       console.error('Error handling signal:', err);
       setError("Error establishing connection");
     }
   };
+  
 
   // Create and send offer
   const createOffer = async () => {
