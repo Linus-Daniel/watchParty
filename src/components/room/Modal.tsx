@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiVideo, FiLock, FiUsers, FiLink } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
@@ -25,8 +25,8 @@ export default function CreateRoomModal({
 }: CreateRoomModalProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const { socket } = useSocket();
   
+
   const [formData, setFormData] = useState({
     name: '',
     isPrivate: false,
@@ -34,6 +34,8 @@ export default function CreateRoomModal({
     roomId: initialRoomId,
     videoUrl: ''
   });
+
+  const {socket, isConnected} = useSocket()
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +50,8 @@ export default function CreateRoomModal({
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+
 
 
 
@@ -133,11 +137,11 @@ export default function CreateRoomModal({
       socket?.emit('joinRoom', { 
         roomId: formData.roomId, 
         userId: user._id,
-        username: user.name 
       });
 
       setSuccess('Joining room...');
       toast.success('Joining room');
+      console.log("user joined room successfully")
 
       // Redirect to room after a brief delay
       setTimeout(() => {

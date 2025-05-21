@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/context/socketContext';
 import { FiSend } from 'react-icons/fi';
+import { User } from '@/types';
 
 interface Message {
   id: string;
@@ -11,67 +12,48 @@ interface Message {
   timestamp: Date;
 }
 
-const Chat: React.FC<{ roomId: string; userId: string;className:string }> = ({ roomId, userId,className, }) => {
+
+const Chat: React.FC<{ roomId: string; userId: string; className?: string; userData: User }> = ({ 
+  roomId, 
+  userId, 
+  className,
+  userData 
+}) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const { socket } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  if (socket && roomId) {
+    socket.emit('joinRoom', roomId, userId);
 
-  // Sample user data for dummy messages
-  const dummyUsers = [
-    { id: 'user1', name: 'Alex Johnson' },
-    { id: 'user2', name: 'Sam Wilson' },
-    { id: 'user3', name: 'Taylor Swift' },
-    { id: 'user4', name: 'Jordan Lee' },
-  ];
+    // Clean previous listeners first
+    socket.off('new-message');
+    socket.off('userJoined');
 
-  // Sample chat messages
-  const sampleMessages = [
-    "Hey everyone! 👋",
-    "What are we watching next?",
-    "This scene is amazing!",
-    "Can someone explain what just happened?",
-    "I'll bring snacks for the next session!",
-    "The cinematography in this movie is stunning",
-    "Anyone else confused about the plot?",
-    "Let's take a 5 min break?",
-    "The soundtrack is 🔥",
-    "I think we should watch the sequel next week"
-  ];
-
-  // Initialize with some dummy messages
-  useEffect(() => {
-    const initialMessages: Message[] = Array.from({ length: 5 }, (_, i) => {
-      const randomUser = dummyUsers[Math.floor(Math.random() * dummyUsers.length)];
-      return {
-        id: `init-${i}`,
-        sender: randomUser.id,
-        senderName: randomUser.name,
-        text: sampleMessages[i % sampleMessages.length],
-        timestamp: new Date(Date.now() - (1000 * 60 * (5 - i))),
+    socket.on('new-message', (newMessage: any) => {
+      const formattedMessage: Message = {
+        id: newMessage._id,
+        sender: newMessage.sender._id,
+        senderName: newMessage.sender.username,
+        text: newMessage.content,
+        timestamp: new Date(newMessage.createdAt),
       };
+      setMessages(prev => [...prev, formattedMessage]);
     });
-    setMessages(initialMessages);
-  }, []);
 
-  // Simulate receiving messages in real-time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) { // 30% chance of a new message
-        const randomUser = dummyUsers[Math.floor(Math.random() * dummyUsers.length)];
-        const newMessage: Message = {
-          id: Math.random().toString(36).substring(2, 9),
-          sender: randomUser.id,
-          senderName: randomUser.name,
-          text: sampleMessages[Math.floor(Math.random() * sampleMessages.length)],
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, newMessage]);
-      }
-    }, 3000 + Math.random() * 7000); // Random interval between 3-10 seconds
+    socket.on('userJoined', (userId: string) => {
+      console.log(`User ${userId} joined the chat`);
+    });
+  }
 
-    return () => clearInterval(interval);
-  }, []);
+  return () => {
+    if (socket) {
+      socket.off('new-message');
+      socket.off('userJoined');
+    }
+  };
+}, [socket, roomId, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -80,64 +62,19 @@ const Chat: React.FC<{ roomId: string; userId: string;className:string }> = ({ r
 
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      const newMessage: Message = {
-        id: Math.random().toString(36).substring(2, 9),
-        sender: userId,
-        senderName: 'You', // This would normally come from user data
-        text: message,
-        timestamp: new Date(),
-      };
-      
-      // In a real app, this would go to the socket
-      setMessages(prev => [...prev, newMessage]);
+    if (message.trim() && socket) {
+      socket.emit('send-message', {
+        roomId,
+        senderId: userId,
+        content: message
+      });
       setMessage('');
-      
-      // Simulate other users occasionally responding
-      if (Math.random() > 0.6) {
-        setTimeout(() => {
-          const randomUser = dummyUsers[Math.floor(Math.random() * dummyUsers.length)];
-          const responseMessage: Message = {
-            id: Math.random().toString(36).substring(2, 9),
-            sender: randomUser.id,
-            senderName: randomUser.name,
-            text: getResponseToMessage(message),
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, responseMessage]);
-        }, 1000 + Math.random() * 4000); // Reply after 1-5 seconds
-      }
     }
   };
-
-  // Helper function to generate responses
-  const getResponseToMessage = (msg: string): string => {
-    if (msg.includes('?')) {
-      const answers = [
-        "I'm not sure about that",
-        "Good question!",
-        "Let me check...",
-        "I think so!",
-        "Definitely!",
-        "Maybe someone else knows?"
-      ];
-      return answers[Math.floor(Math.random() * answers.length)];
-    }
-    
-    const responses = [
-      "Interesting point!",
-      "I agree!",
-      "Tell me more about that",
-      "That's what I was thinking too",
-      "👍",
-      "😂",
-      "Wow, really?"
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
+  
 
   return (
-    <div className="flex flex-col h-[50vh] bg-gray-800 overflow-y-scroll rounded-lg border border-gray-700">
+    <div className={`flex flex-col h-[50vh] bg-gray-800 hide-scrollbar overflow-y-scroll rounded-lg border border-gray-700 ${className}`}>
       <div className="flex-1 p-4 overflow-y-auto">
         {messages.map((msg) => (
           <div 

@@ -16,7 +16,10 @@ export interface User {
     _id: string;
     roomId: string;
     roomName: string;
-    creator: string;
+    creator: {
+      _id: string;
+      avatar?: string;
+    };
     participants: string[];
     videoUrl: string;
     isPlaying: boolean;

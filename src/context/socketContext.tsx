@@ -18,6 +18,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const { user} = useAuth();
 
+  const URL = process.env.NODE_ENV === 'production'?"https://scenema-backend.onrender.com": "http://localhost:5000";
+
   useEffect(() => {
     if (!user) return;
     // Check if the socket is already initialized
@@ -25,7 +27,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     console.log(token)
 
     // Initialize socket connection
-    const socketInstance = io("http://localhost:5001", {
+    const socketInstance = io("http://localhost:5000", {
       auth: {
         token:localStorage.getItem('token'),
       },
@@ -51,12 +53,18 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     // Connect the socket
     socketInstance.connect();
 
+    socketInstance.onAny((event, ...args) => {
+      console.log(`⚡ [Socket Event]: ${event}`, args);
+    });
+    
+
     // Cleanup on unmount
     return () => {
       socketInstance.disconnect();
       socketInstance.off('connect');
       socketInstance.off('disconnect');
       socketInstance.off('connect_error');
+      
     };
   }, [user]);
 

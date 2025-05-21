@@ -8,14 +8,13 @@ import { FiMessageSquare, FiX, FiVideo, FiMic, FiMicOff, FiVideoOff, FiPhone, Fi
 import { FaYoutube, FaFacebook, FaTiktok } from "react-icons/fa";
 import { SiNetflix } from "react-icons/si";
 import Header from "@/components/Header";
-import SideBar from "@/components/room/SideBar";
 import Chat from "@/components/room/Chat";
 import { useAuth } from "@/context/AuthContext";
 import CopyText from "@/components/room/CopyId";
-import CreateRoomModal from "@/components/room/Modal";
 import api from "@/lib/api";
-import { Room } from "@/types";
-import { StringExpressionOperator } from "mongoose";
+import { Room, User } from "@/types";
+import { useSocket } from "@/context/socketContext";
+import VideoChatRoom from "@/components/room/VideoChatRoom";
 
 const VideoPlayer = dynamic(() => import("@/components/room/Videoplayer"), {
   ssr: false,
@@ -46,6 +45,7 @@ const RoomPage: React.FC = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const {socket} = useSocket()
   const [activeSource, setActiveSource] = useState<
     "youtube" | "facebook" | "tiktok" | "netflix" | "fmovies"
   >("youtube");
@@ -63,6 +63,18 @@ const RoomPage: React.FC = () => {
     },
   };
 
+
+  // useEffect(() => {
+  //   if (!isConnected || !socket || !roomId) return;
+
+  //   socket.emit('joinRoom', roomId);
+
+  //   return () => {
+  //     socket.emit('leaveRoom', roomId);
+  //   };
+  // }, [socket, isConnected, roomId]);
+
+
   const mockRoom = {
     username: "Linux Watch Party",
     host: { id: "123" },
@@ -74,12 +86,11 @@ const RoomPage: React.FC = () => {
     const fetchRoomData = async () => {
       // Fetch room data from API
       const response = await api.get(`/rooms/${roomId}`);
-      console.log(response.data.room, "room data");
       setRoom(response.data.room);
     };
 
     fetchRoomData();
-  },[roomId]);
+  },[roomId,socket]);
 
 
 
@@ -105,7 +116,6 @@ const RoomPage: React.FC = () => {
 
       setSearchResults(mockResults);
     } catch (error) {
-      console.error("Search error:", error);
     } finally {
       setIsSearching(false);
     }
@@ -116,7 +126,6 @@ const RoomPage: React.FC = () => {
     setSearchQuery("");
     setSearchResults([]);
   };
-
   const toggleCall = () => setIsCallActive(!isCallActive);
   const toggleMute = () => setIsMuted(!isMuted);
   const toggleVideo = () => setIsVideoOff(!isVideoOff);
@@ -166,12 +175,12 @@ const RoomPage: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative aspect-video bg-gray-800 rounded-xl overflow-hidden shadow-2xl"
+                    className="relative aspect-video bg-gray-800 rounded-xl h-fit overflow-hidden shadow-2xl"
                   >
                     <VideoPlayer
                       url={room?.videoUrl as string}
                       roomId={roomId}
-                      isHost={mockSession.user?.id === mockRoom.host.id}
+                      isHost={room?.creator._id === user?._id}
                     />
 
                     {/* Call Controls */}
@@ -204,7 +213,11 @@ const RoomPage: React.FC = () => {
                           <FiPhone size={20} />
                         </button>
                       </motion.div>
+
+
                     )}
+
+                    {/* <Controls  /> */}
                   </motion.div>
 
                   {/* Room Sharing */}
@@ -214,7 +227,7 @@ const RoomPage: React.FC = () => {
                   </div>
 
                   {/* Video Source Tabs */}
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
                     {["youtube", "facebook", "tiktok", "netflix", "fmovies"].map((source) => (
                       <button
                         key={source}
@@ -322,14 +335,18 @@ const RoomPage: React.FC = () => {
                     
                     {/* Chat container with fixed height that doesn't scroll */}
                     <div className="flex-1 min-h-0"> {/* Key change here */}
+                      <VideoChatRoom roomId={roomId} userId={user?._id as string}  />
                       <Chat 
                         roomId={roomId} 
-                        userId={mockSession.user?.id}
-                        className="h-full" 
+                        userData={user as User}
+                        userId={user?._id as string}
+                        className="h-1/2" 
                       />
+
                     </div>
 
-                    <div className="p-4 border-t border-gray-700">
+                    {/* <div className="p-4 border-t border-gray-700">
+                      <VideoChatModal roomId={roomId} userId={user?._id as string} key={Math.random()} />
                       <button
                         onClick={toggleCall}
                         className={`w-full py-3 rounded-lg flex items-center justify-center transition-all ${
@@ -350,7 +367,7 @@ const RoomPage: React.FC = () => {
                           </>
                         )}
                       </button>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </div>
@@ -391,7 +408,8 @@ const RoomPage: React.FC = () => {
                 <div className="flex-1 min-h-0">
                   <Chat 
                     roomId={roomId} 
-                    userId={mockSession.user?.id}
+                    userId={user?._id as string}
+                    userData={user as User}
                     className="h-full"
                   />
                 </div>

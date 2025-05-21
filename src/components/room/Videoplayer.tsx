@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import ReactPlayer from 'react-player';
 import { useSocket } from '@/context/socketContext';
 
@@ -9,47 +8,172 @@ interface VideoPlayerProps {
   url: string;
   roomId: string;
   isHost: boolean;
+  onUrlChange?: (newUrl: string) => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, roomId, isHost }) => {
   const [playing, setPlaying] = useState(false);
   const [played, setPlayed] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState(url);
   const playerRef = useRef<ReactPlayer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { socket } = useSocket();
+  const [isReady, setIsReady] = useState(false);
 
+
+  console.log(`${isHost?"i am the host":"i am not the host"}`);
+  // Initialize socket events
   useEffect(() => {
     if (!socket) return;
 
-    const playHandler = () => setPlaying(true);
-    const pauseHandler = () => setPlaying(false);
-    const seekHandler = (time: number) => {
-      if (playerRef.current) {
-        playerRef.current.seekTo(time, 'fraction');
-        setPlayed(time);
+    // Sync play state
+    const handlePlay = () => {
+      setPlaying(true);
+    };
+
+    // Sync pause state
+    const handlePause = () => {
+      setPlaying(false);
+    };
+
+    // Sync seek position
+    const handleSeek = (fraction: number) => {
+      if (playerRef.current && !isHost) {
+        playerRef.current.seekTo(fraction, 'fraction');
+        setPlayed(fraction);
       }
     };
 
-    socket.on('play', playHandler);
-    socket.on('pause', pauseHandler);
-    socket.on('seek', seekHandler);
-
-    return () => {
-      socket.off('play', playHandler);
-      socket.off('pause', pauseHandler);
-      socket.off('seek', seekHandler);
+    // Handle video URL changes
+    const handleVideoChange = (newUrl: string) => {
+      setCurrentUrl(newUrl);
+      setPlaying(false);
+      setPlayed(0);
     };
-  }, [socket]);
 
-  const handlePlay = () => isHost && socket?.emit('play');
-  const handlePause = () => isHost && socket?.emit('pause');
-  const handleSeek = (seconds: number) => isHost && socket?.emit('seek', seconds);
-  const handleProgress = (state: { played: number }) => {
-    setPlayed(state.played);
-    if (isHost) socket?.emit('progress', state.played);
+    const handleProgressUpdate = (fraction: number) => {
+      if (!isHost && playerRef.current && Math.abs(fraction - played) > 0.01) {
+        playerRef.current.seekTo(fraction, 'fraction');
+        setPlayed(fraction);
+      }
+    };
+
+
+    const handleDuration = (duration: number) => {
+      setDuration(duration);
+      if (isHost && socket) {
+        socket.emit('duration-video', roomId, duration);
+      }
+    };
+    // Request current state when joining
+    const handleStateRequest = () => {
+      if (isHost) {
+        socket.emit('video-state', {
+          roomId,
+          isPlaying: playing,
+          currentTime: played * duration,
+          url: currentUrl
+        });
+      }
+    };
+
+    // Receive initial state from host
+    const handleInitialState = (state: {
+      isPlaying: boolean;
+      currentTime: number;
+      url: string;
+    }) => {
+      if (!isHost) {
+        setCurrentUrl(state.url);
+        setPlaying(state.isPlaying);
+        if (playerRef.current && duration > 0) {
+          const fraction = state.currentTime / duration;
+          playerRef.current.seekTo(fraction, 'fraction');
+          setPlayed(fraction);
+        }
+      }
+    };
+
+    // Set up event listeners
+    socket.on('play-video', handlePlay);
+    socket.on('pause-video', handlePause);
+    socket.on('seek-video', handleSeek);
+    socket.on('change-video', handleVideoChange);
+    socket.on('request-state', handleStateRequest);
+    socket.on('receive-state', handleInitialState);
+    socket.on('progress-video', handleProgressUpdate);
+    socket.on('duration-video', handleDuration);
+    // Join the video room
+    socket.emit('join-video-room', roomId);
+
+    // Request current state if not host
+    if (!isHost && isReady) {
+      socket.emit('request-state', roomId);
+    }
+
+    // Clean up
+    return () => {
+      socket.off('play-video', handlePlay);
+      socket.off('pause-video', handlePause);
+      socket.off('seek-video', handleSeek);
+      socket.off('change-video', handleVideoChange);
+      socket.off('request-state', handleStateRequest);
+      socket.off('receive-state', handleInitialState);
+    };
+  }, [socket, roomId, isHost, played, duration, isReady]);
+
+  // Handle play/pause events
+  const handlePlay = () => {
+    if (isHost && socket) {
+      socket.emit('play-video', roomId);
+      console.log('Play event emitted');
+    }
   };
 
+  const handlePause = () => {
+    if (isHost && socket) {
+      socket.emit('pause-video', roomId);
+    }
+  };
+
+  // Handle seeking
+  const handleSeek = (seconds: number) => {
+    if (!duration) return;
+    
+    const fraction = seconds / duration;
+    setPlayed(fraction);
+    
+    if (isHost && socket) {
+      socket.emit('seek-video', roomId, fraction);
+    }
+  };
+
+  // Report progress to sync with other clients
+  const handleProgress = (state: { played: number, playedSeconds: number }) => {
+    setPlayed(state.played);
+    
+    if (isHost && playing && socket) {
+      socket.emit('progress-video', roomId, state.played);
+    }
+  };
+
+
+  // Handle duration change
+  const handleDuration = (duration: number) => {
+    setDuration(duration);
+  };
+
+  // Handle ready state
+  const handleReady = () => {
+    setIsReady(true);
+    if (!isHost && socket) {
+      socket.emit('request-state', roomId);
+    }
+  };
+
+  // Fullscreen toggle
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     
@@ -75,7 +199,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, roomId, isHost }) => {
     >
       <ReactPlayer
         ref={playerRef}
-        url={url}
+        url={currentUrl}
         playing={playing}
         controls={true}
         width="100%"
@@ -89,12 +213,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, roomId, isHost }) => {
         onPause={handlePause}
         onSeek={handleSeek}
         onProgress={handleProgress}
+        onDuration={handleDuration}
+        onReady={handleReady}
+        progressInterval={100}
         config={{
           youtube: {
             playerVars: {
               modestbranding: 1,
               rel: 0,
               showinfo: 0,
+              enablejsapi: 1
+            }
+          },
+          file: {
+            attributes: {
+              controlsList: 'nodownload'
             }
           }
         }}
@@ -119,38 +252,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, roomId, isHost }) => {
           </svg>
         )}
       </button>
-
-      {/* Custom play/pause indicator */}
-      {/* <AnimatePresence>
-        {playing ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          >
-            <div className="bg-black bg-opacity-50 rounded-full p-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          >
-            <div className="bg-black bg-opacity-50 rounded-full p-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="6" y="4" width="4" height="16"/>
-                <rect x="14" y="4" width="4" height="16"/>
-              </svg>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence> */}
     </div>
   );
 };

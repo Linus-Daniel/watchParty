@@ -109,7 +109,7 @@ const {user} = useAuth()
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 {user? (
-                  <Link href="/room/create" passHref>
+                  <Link href="/room/1" passHref>
                     <Button variant="primary"  className="w-full sm:w-auto transform hover:scale-105 transition-transform">
                       🎬 Create a Room
                     </Button>
@@ -231,7 +231,7 @@ const {user} = useAuth()
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                   {user ? (
-                    <Link href="/room/create" passHref>
+                    <Link href="/room/1" passHref>
                       <Button variant="primary" className="w-full sm:w-auto transform hover:scale-105 transition-transform">
                         🎉 Create a Room
                       </Button>

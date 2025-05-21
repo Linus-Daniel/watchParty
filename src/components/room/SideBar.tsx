@@ -31,6 +31,8 @@ function SideBar() {
 
   useEffect(() => {
     const fetchRooms = async () => {
+      if (!userId ){
+      }
       const response = await api.get(`rooms/user/${userId}`, {
         headers: {
           "Content-Type": "application/json",
@@ -41,12 +43,10 @@ function SideBar() {
       const roomData = response.data.rooms;
       setRooms(roomData);
 
-      console.log(response.data.rooms, "rooms");
     };
     fetchRooms();
   }, [user?._id]);
 
-  console.log(userId, "user Id");
 
   return (
     <div>
@@ -117,7 +117,7 @@ function SideBar() {
               </h3>
               <ul className="space-y-1">
                 {rooms?.map((room, index) => (
-                  <li>
+                  <li key={index}>
                     <Link
                       href={`/room/${room.roomId}`}
                       className="flex items-center p-2 rounded-lg hover:bg-gray-700 transition-colors"

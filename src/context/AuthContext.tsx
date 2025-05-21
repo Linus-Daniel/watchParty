@@ -48,14 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
     
 
-      console.log('Login response:', userInfo.data.user);
-
-
       const userData = userInfo.data.user;
       setUser(userData);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(userData));
-      console.log('User data:', userData);
       // router.push('/');
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Login failed');
@@ -64,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  console.log(user," from the context")
   const register = async ({ name, email, password }: { name: string; email: string; password: string }) => {
     setLoading(true);
     try {
